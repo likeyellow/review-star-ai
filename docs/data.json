@@ -1,0 +1,21 @@
+{
+  "shops": [
+    {
+      "id": 1,
+      "name": "옛맛서울불고기",
+      "lat": 37.2636,
+      "lng": 127.0286,
+      "userAvg": 2.47,
+      "aiAvg": 3.71,
+      "aiWeightedAvg": 3.53,
+      "reviews": [
+        { "text": "굿", "userStar": 1, "aiStar": 4.70, "confidence": 0.607 },
+        { "text": "맛있어요", "userStar": 1, "aiStar": 4.74, "confidence": 0.638 },
+        { "text": "회가 정말 신선하고 밑반찬도 훌륭했습니다 강추", "userStar": 5, "aiStar": 4.64, "confidence": 0.565 },
+        { "text": "주차가 조금 불편하지만 맛은 좋아요", "userStar": 4, "aiStar": 4.68, "confidence": 0.589 },
+        { "text": "음식은 무난한데 서비스가 조금 아쉽습니다", "userStar": 3, "aiStar": 3.35, "confidence": 0.205 },
+        { "text": "최악이었어요 다시는 안 갑니다", "userStar": 1, "aiStar": 1.02, "confidence": 0.958 }
+      ]
+    }
+  ]
+}
