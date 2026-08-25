@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리뷰가 별점을 정합니다 — AI 기반 음식점 리뷰 자동 평가</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root{
+  --star:#FFC633; --star-off:#E3E5E8;
+  --ink:#191F28; --gray:#8B95A1; --line:#E5E8EB; --bg:#F2F4F6;
+  --blue:#0F6FFF; --red:#E5342B; --ok:#00B05D;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.h2{font-size:22px;font-weight:700;margin:0 0 6px;letter-spacing:-.01em}
+.h2-sub{color:var(--gray);font-size:15px;margin:0 0 22px}
+
+/* ===== 1. 헤드라인 벽 ===== */
+.problem{background:#141A20;color:#fff;padding:60px 0 54px}
+.problem .tag{display:inline-block;font-size:12px;letter-spacing:.06em;color:var(--star);
+  border:1px solid rgba(255,198,51,.4);border-radius:2px;padding:4px 10px;margin-bottom:20px}
+.problem h1{font-size:clamp(27px,4.4vw,44px);font-weight:800;line-height:1.3;
+  margin:0 0 16px;letter-spacing:-.02em}
+.problem h1 mark{background:none;color:var(--star)}
+.problem .sub{color:#A7B0B8;font-size:16px;max-width:64ch;margin:0 0 30px}
+
+.news{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.09);border-radius:8px;overflow:hidden}
+.news a{display:block;background:#141A20;padding:14px 16px;text-decoration:none;color:#fff;transition:background .15s}
+.news a:hover,.news a:focus-visible{background:#1E262E;outline:none}
+.news .src{font-size:11px;color:var(--star);letter-spacing:.04em;margin-bottom:5px}
+.news .hl{font-size:14px;font-weight:600;line-height:1.45}
+.news .dt{font-size:11px;color:#6B7680;margin-top:6px}
+.news-more{font-size:13px;color:#6B7680;margin:14px 0 0}
+
+/* ===== 2. 실제 리뷰 재현 ===== */
+.evidence{padding:54px 0 0}
+.two{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:22px;align-items:start}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
+
+.nv{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+.nv-cap{font-size:12px;color:var(--gray);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.nv-row{display:flex;align-items:center;gap:8px;font-size:14px;color:#4E5968;margin-bottom:9px}
+.nv-body{font-size:22px;font-weight:700;margin:12px 0 14px}
+.nv-star{display:flex;align-items:center;gap:9px;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.nv-star .lbl{font-size:13px;color:var(--gray)}
+.nv-meta{font-size:12px;color:var(--gray);margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px}
+.nv-meta b{color:var(--red);font-weight:600}
+
+.quote{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px 26px}
+.quote blockquote{margin:0 0 16px;font-size:17px;line-height:1.65;font-weight:500;
+  padding-left:16px;border-left:3px solid var(--star)}
+.quote cite{display:block;font-style:normal;font-size:13px;color:var(--gray);margin-bottom:22px}
+.quote .turn{background:var(--bg);border-radius:8px;padding:18px 20px}
+.quote .turn p{margin:0;font-size:15px;line-height:1.65}
+.quote .turn strong{color:var(--blue)}
+
+/* ===== 별 ===== */
+.stars{display:inline-block;position:relative;flex:none;font-size:15px;line-height:1;
+  letter-spacing:1px;color:var(--star-off);white-space:nowrap}
+.stars::before{content:"\2605\2605\2605\2605\2605"}
+.stars i{position:absolute;left:0;top:0;overflow:hidden;color:var(--star);
+  transition:width .5s cubic-bezier(.4,0,.2,1)}
+.stars i::before{content:"\2605\2605\2605\2605\2605"}
+.stars.lg{font-size:20px}
+.stars.xl{font-size:24px}
+@media(prefers-reduced-motion:reduce){.stars i{transition:none}}
+
+/* ===== 3. 지도앱 ===== */
+.app{padding:52px 0 80px}
+.toggle{display:inline-flex;background:#E3E6EA;border-radius:9px;padding:3px;margin-bottom:18px}
+.toggle button{border:none;background:none;cursor:pointer;font:inherit;font-size:14px;font-weight:600;
+  color:var(--gray);padding:9px 20px;border-radius:7px;transition:.18s}
+.toggle button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.toggle button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#map{height:300px;background:#DDE1E5}
+.shoplist{padding:6px}
+.shopbtn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
+  background:none;border:none;border-radius:8px;padding:11px 13px;font:inherit;color:inherit}
+.shopbtn:hover{background:var(--bg)}
+.shopbtn[aria-current="true"]{background:#EAF2FF}
+.shopbtn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.shopbtn .nm{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shopbtn .sc{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+
+.shop-head{padding:24px 26px 20px;border-bottom:8px solid var(--bg)}
+.shop-head h3{font-size:23px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.score{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.score .big{font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;transition:color .4s}
+.score .cnt{font-size:13px;color:var(--gray)}
+.delta{font-size:13px;font-weight:600;padding:4px 10px;border-radius:20px;background:#E7F7EF;color:var(--ok)}
+.delta.none{background:var(--bg);color:var(--gray)}
+
+.rv{padding:18px 26px;border-bottom:1px solid var(--line)}
+.rv:last-child{border-bottom:none}
+.rv-top{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.rv-num{font-size:13px;color:var(--gray);font-variant-numeric:tabular-nums}
+.rv-text{margin:0;font-size:15px;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{font-size:12px;padding:3px 9px;border-radius:4px;background:var(--bg);color:var(--gray)}
+.chip.gap{background:#FDECEB;color:var(--red)}
+.chip.mix{background:#FFF6E5;color:#A96A00}
+.conf{display:inline-flex;align-items:center;gap:6px}
+.conf .bar{width:52px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.conf .bar i{display:block;height:100%;background:var(--blue)}
+.note{font-size:13px;color:var(--gray);padding:16px 26px;background:var(--bg);margin:0}
+.status{padding:40px 26px;color:var(--gray);font-size:14px}
+
+footer{border-top:1px solid var(--line);padding:24px 0 56px;font-size:12.5px;color:var(--gray);background:#fff}
+footer p{margin:0 0 4px}
+</style>
+</head>
+<body>
+
+<!-- ===== 1. 헤드라인 벽 ===== -->
+<section class="problem">
+  <div class="wrap">
+    <span class="tag">계속 반복되는 문제</span>
+    <h1>리뷰에는 <mark>&ldquo;굿&rdquo;</mark>, 별점은 <mark>1점</mark></h1>
+    <p class="sub">
+      한 사람의 특이한 사례가 아닙니다. 네이버가 5년 만에 별점 공개를 재개한 뒤로
+      같은 종류의 기사가 계속 나오고 있습니다.
+    </p>
+
+    <nav class="news" aria-label="관련 뉴스">
+      <a href="https://v.daum.net/v/20260825081208156" target="_blank" rel="noopener">
+        <div class="src">SBS</div>
+        <div class="hl">&ldquo;제일 무서운 후기&hellip;어떻게 좀 해 달라&rdquo; 곳곳서 난리</div>
+        <div class="dt">2026.08.25</div>
+      </a>
+      <a href="https://www.yna.co.kr/amp/view/AKR20260820154800505" target="_blank" rel="noopener">
+        <div class="src">연합뉴스</div>
+        <div class="hl">&ldquo;이유 없는 1점에도 속수무책&rdquo;&hellip;&lsquo;별점 테러&rsquo;에 떠는 자영업자</div>
+        <div class="dt">2026.08.24</div>
+      </a>
+      <a href="https://www.joongang.co.kr/article/25449028" target="_blank" rel="noopener">
+        <div class="src">중앙일보</div>
+        <div class="hl">43번 방문한 맛집에 별점1점&hellip;리뷰 테러에 장사 접은 사장님</div>
+        <div class="dt">2026.07.29</div>
+      </a>
+      <a href="https://www.mt.co.kr/society/2026/07/28/2026072806590456673" target="_blank" rel="noopener">
+        <div class="src">머니투데이</div>
+        <div class="hl">43번 찾은 횟집도 1점, 5300번 &lsquo;별점 테러&rsquo;&hellip;사장님은 가게 접었다</div>
+        <div class="dt">2026.07.28</div>
+      </a>
+      <a href="https://www.seoul.co.kr/news/economy/distribution/2026/07/15/20260715500077" target="_blank" rel="noopener">
+        <div class="src">서울신문</div>
+        <div class="hl">수십번 올 때마다 리뷰는 &ldquo;굿&rdquo; 점수는 &lsquo;1점&rsquo;&hellip;네이버 별점 재개에 소상공인 &lsquo;울상&rsquo;</div>
+        <div class="dt">2026.07.15</div>
+      </a>
+      <a href="https://www.google.com/search?q=%EB%A6%AC%EB%B7%B0+%EB%B3%84%EC%A0%90+%ED%85%8C%EB%9F%AC&tbm=nws" target="_blank" rel="noopener">
+        <div class="src">더 보기</div>
+        <div class="hl">&lsquo;리뷰 별점 테러&rsquo; 뉴스 검색 결과</div>
+        <div class="dt">구글 뉴스</div>
+      </a>
+    </nav>
+    <p class="news-more">기사 제목을 누르면 원문으로 이동합니다.</p>
+  </div>
+</section>
+
+<!-- ===== 2. 실제 리뷰 재현 + 전문가 제안 ===== -->
+<section class="wrap evidence">
+  <h2 class="h2">문제가 된 리뷰는 이런 모습이었습니다</h2>
+  <p class="h2-sub">보도된 화면을 같은 구조로 재현했습니다.</p>
+
+  <div class="two">
+    <!-- 재현 카드 -->
+    <div class="nv">
+      <p class="nv-cap">지도앱 리뷰 화면</p>
+      <div class="nv-row"><span>&#127769;</span><span>저녁에 방문</span></div>
+      <p class="nv-body">굿</p>
+      <div class="nv-row"><span>&#128150;</span><span>친절해요</span></div>
+      <div class="nv-star">
+        <span class="lbl">별점</span>
+        <span class="stars xl" role="img" aria-label="5점 만점에 1점"><i style="width:20%"></i></span>
+        <span class="lbl">1.0</span>
+      </div>
+      <p class="nv-meta"><span>7.6. 월</span><span>&middot;</span><b>43번째 방문</b><span>&middot;</span><span>영수증 인증</span></p>
+    </div>
+
+    <!-- 전문가 제안 → 전환 -->
+    <div class="quote">
+      <blockquote>
+        낮은 별점을 줄 때 간단한 이유를 함께 남기도록 하는 장치가 필요하다.
+      </blockquote>
+      <cite>SBS 보도 중 전문가 의견 (2026.08.25)</cite>
+
+      <div class="turn">
+        <p>
+          전문가들은 <strong>별점에 이유를 덧붙이자</strong>고 제안합니다.
+          하지만 그러면 사용자가 입력해야 할 것이 하나 더 늘어납니다.
+        </p>
+        <p style="margin-top:12px">
+          이 프로젝트는 순서를 뒤집습니다. <strong>이유를 먼저 받고, 거기서 별점을 만듭니다.</strong>
+          사용자는 리뷰 본문만 씁니다. 별점 입력란이 없으므로 본문과 어긋난 별점도 생기지 않습니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3. 지도앱 ===== -->
+<section class="wrap app">
+  <h2 class="h2">같은 가게, 두 가지 평점</h2>
+  <p class="h2-sub">전환해 보면 별점이 어떻게 달라지는지 볼 수 있습니다.</p>
+
+  <div class="toggle" role="group" aria-label="평점 방식 전환">
+    <button id="btnUser" aria-pressed="true">지금의 지도앱</button>
+    <button id="btnAi" aria-pressed="false">AI 산출 적용</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div id="map"></div>
+        <div class="shoplist" id="shoplist"></div>
+      </div>
+    </div>
+    <div class="card" id="detail" aria-live="polite">
+      <p class="status">가게 정보를 불러오는 중입니다.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p>모델: klue/bert-base 파인튜닝 &middot; 데이터: KR3 (CC BY-NC-SA 4.0)</p>
+  <p>지도: Leaflet, OpenStreetMap &middot; 가게 위치와 리뷰는 시연을 위한 예시입니다.</p>
+  <p>리뷰 화면은 보도 내용을 바탕으로 재현한 것이며 특정 서비스의 화면을 그대로 옮긴 것이 아닙니다.</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const starHtml = (v, cls) =>
+  '<span class="stars ' + (cls || '') + '" role="img" aria-label="5점 만점에 ' + v.toFixed(1) + '점">' +
+  '<i style="width:' + (v / 5 * 100) + '%"></i></span>';
+
+let shops = [], current = null, mode = 'user';
+
+function render() {
+  const s = shops.find(x => x.id === current);
+  if (!s) return;
+  const ai = mode === 'ai';
+  const avg = ai ? s.aiWeightedAvg : s.userAvg;
+  const diff = s.aiWeightedAvg - s.userAvg;
+  const revs = s.reviews.slice().sort((a, b) => (a.userStar - a.aiStar) - (b.userStar - b.aiStar));
+
+  let html = '<div class="shop-head"><h3>' + esc(s.name) + '</h3><div class="score">' +
+    starHtml(avg, 'lg') +
+    '<span class="big" style="color:' + (ai ? 'var(--ok)' : 'var(--ink)') + '">' + avg.toFixed(2) + '</span>' +
+    '<span class="cnt">리뷰 ' + s.reviews.length + '건</span>' +
+    (ai ? '<span class="delta' + (Math.abs(diff) < 0.3 ? ' none' : '') + '">' +
+          (diff >= 0 ? '+' : '') + diff.toFixed(2) + '</span>' : '') + '</div></div>';
+
+  revs.forEach(function (r) {
+    const v = ai ? r.aiStar : r.userStar;
+    const gap = Math.abs(r.userStar - r.aiStar) >= 2;
+    html += '<div class="rv"><div class="rv-top">' + starHtml(v) +
+      '<span class="rv-num">' + v.toFixed(ai ? 2 : 1) + '</span></div>' +
+      '<p class="rv-text">' + esc(r.text) + '</p><div class="chips">' +
+      (!ai && gap ? '<span class="chip gap">본문과 어긋남</span>' : '') +
+      (ai && r.confidence < 0.3 ? '<span class="chip mix">긍정&middot;부정 혼재</span>' : '') +
+      (ai ? '<span class="chip conf">신뢰도 <span class="bar"><i style="width:' +
+            Math.round(r.confidence * 100) + '%"></i></span>' + Math.round(r.confidence * 100) + '%</span>' : '') +
+      '</div></div>';
+  });
+
+  html += '<p class="note">' + (ai
+    ? 'AI가 리뷰 본문만 읽고 산출한 별점입니다. 가게 평점은 신뢰도를 가중치로 반영해 계산합니다.'
+    : '사용자가 직접 입력한 별점입니다. 본문과 어긋난 리뷰가 평점을 끌어내립니다.') + '</p>';
+
+  document.getElementById('detail').innerHTML = html;
+
+  document.querySelectorAll('.shopbtn').forEach(function (b) {
+    const sh = shops.find(x => x.id === Number(b.dataset.id));
+    const val = ai ? sh.aiWeightedAvg : sh.userAvg;
+    b.setAttribute('aria-current', String(sh.id === current));
+    b.querySelector('.sc').textContent = val.toFixed(2);
+    b.querySelector('.stars i').style.width = (val / 5 * 100) + '%';
+  });
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnUser').setAttribute('aria-pressed', String(m === 'user'));
+  document.getElementById('btnAi').setAttribute('aria-pressed', String(m === 'ai'));
+  render();
+}
+document.getElementById('btnUser').onclick = function () { setMode('user'); };
+document.getElementById('btnAi').onclick = function () { setMode('ai'); };
+
+fetch('data.json')
+  .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(function (data) {
+    shops = data.shops || [];
+    if (!shops.length) throw new Error('empty');
+
+    const map = L.map('map', { scrollWheelZoom: false }).setView([shops[0].lat, shops[0].lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    const list = document.getElementById('shoplist');
+    shops.forEach(function (s) {
+      L.marker([s.lat, s.lng]).addTo(map).bindPopup('<b>' + esc(s.name) + '</b>')
+        .on('click', function () { current = s.id; render(); });
+
+      const b = document.createElement('button');
+      b.className = 'shopbtn';
+      b.dataset.id = s.id;
+      b.innerHTML = '<span class="nm">' + esc(s.name) + '</span>' +
+                    starHtml(s.userAvg) + '<span class="sc">' + s.userAvg.toFixed(2) + '</span>';
+      b.onclick = function () { current = s.id; render(); };
+      list.appendChild(b);
+    });
+
+    if (shops.length > 1) map.fitBounds(shops.map(s => [s.lat, s.lng]), { padding: [40, 40] });
+    current = shops[0].id;
+    render();
+  })
+  .catch(function (err) {
+    document.getElementById('detail').innerHTML =
+      '<p class="status">data.json을 읽지 못했습니다 (' + esc(err.message) + ').' +
+      ' 로컬에서 볼 때는 <code>npx serve docs</code>로 실행해 주세요.</p>';
+  });
+</script>
+</body>
+</html>
