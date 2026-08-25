@@ -1,20 +1,275 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI 리뷰 별점 시스템</title>
-  <style>
-    body { font-family: -apple-system, "Malgun Gothic", sans-serif;
-           display: grid; place-items: center; height: 100vh; margin: 0; }
-    h1 { font-weight: 500; }
-    p { color: #666; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리뷰가 말하는 별점 — AI 기반 음식점 리뷰 자동 평가</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root{
+  --paper:#F1F3F0;
+  --card:#FFFFFF;
+  --ink:#1C2321;
+  --ink-soft:#5E6B66;
+  --line:#D8DEDA;
+  --user:#B3271E;      /* 사용자가 입력한 별점 */
+  --ai:#1F6F6B;        /* AI가 산출한 별점 */
+  --warn:#C4820E;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,sans-serif;
+  font-weight:300; line-height:1.65;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- hero ---------- */
+.hero{padding:72px 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--ink-soft); margin:0 0 18px;
+}
+.hero h1{
+  font-family:"Gowun Batang",serif; font-weight:700;
+  font-size:clamp(32px,5.4vw,58px); line-height:1.22;
+  margin:0 0 20px; letter-spacing:-.01em;
+}
+.hero h1 em{font-style:normal;color:var(--user)}
+.lede{max-width:60ch;font-size:17px;color:var(--ink-soft);margin:0}
+
+/* 축 범례 */
+.legend{
+  display:flex;flex-wrap:wrap;gap:22px;align-items:center;
+  margin-top:32px;padding-top:22px;border-top:1px solid var(--line);
+  font-size:13px;color:var(--ink-soft);
+}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.dot{width:11px;height:11px;border-radius:50%;flex:none}
+.dot.u{background:var(--user)}
+.dot.a{background:var(--ai)}
+
+/* ---------- layout ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;padding-bottom:80px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:4px}
+#map{height:420px;border-radius:4px 4px 0 0;background:#E4E8E5}
+@media(max-width:900px){#map{height:300px}}
+
+.shoplist{padding:8px}
+.shopbtn{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:none;border:none;border-radius:3px;
+  padding:12px 14px;font:inherit;color:inherit;
+}
+.shopbtn:hover{background:var(--paper)}
+.shopbtn[aria-current="true"]{background:var(--paper);box-shadow:inset 3px 0 0 var(--ai)}
+.shopbtn:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+.shopbtn b{font-weight:500}
+.shopbtn small{display:block;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;font-size:12px}
+
+/* ---------- detail ---------- */
+.detail{padding:30px 32px 36px}
+@media(max-width:560px){.detail{padding:24px 20px 28px}}
+.detail h2{font-family:"Gowun Batang",serif;font-size:27px;font-weight:700;margin:0 0 4px}
+.addr{font-size:13px;color:var(--ink-soft);margin:0 0 26px}
+
+.avgs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:34px}
+@media(max-width:560px){.avgs{grid-template-columns:1fr}}
+.avg{background:var(--card);padding:16px 18px}
+.avg dt{font-size:12px;color:var(--ink-soft);margin:0 0 6px;letter-spacing:.02em}
+.avg dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:28px;font-weight:500;line-height:1}
+.avg.u dd{color:var(--user)}
+.avg.a dd{color:var(--ai)}
+
+.sec-label{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-soft);
+  margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line);
+}
+.sec-note{font-size:13px;color:var(--ink-soft);margin:12px 0 4px}
+
+/* ---------- 괴리 축: 이 페이지의 핵심 ---------- */
+.rev{padding:22px 0;border-bottom:1px solid var(--line)}
+.rev:last-child{border-bottom:none}
+.rev-text{margin:0 0 16px;font-size:15px;line-height:1.6}
+.rev.flag .rev-text{font-weight:400}
+
+.axis{position:relative;height:34px;margin:0 4px}
+.axis-line{position:absolute;left:0;right:0;top:16px;height:1px;background:var(--line)}
+.tick{position:absolute;top:11px;width:1px;height:11px;background:var(--line)}
+.span{position:absolute;top:14px;height:5px;border-radius:3px;background:var(--warn);opacity:.5}
+.mark{
+  position:absolute;top:9px;width:15px;height:15px;border-radius:50%;
+  margin-left:-7.5px;border:2.5px solid var(--card);
+}
+.mark.u{background:var(--user);z-index:2}
+.mark.a{background:var(--ai);z-index:3}
+.scale{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-soft);margin:2px 4px 0}
+
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:14px;font-size:13px}
+.num{font-family:"IBM Plex Mono",monospace;font-weight:500}
+.num.u{color:var(--user)}
+.num.a{color:var(--ai)}
+.conf{display:flex;align-items:center;gap:8px;color:var(--ink-soft)}
+.bar{width:64px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ai)}
+.tag{
+  font-size:11px;letter-spacing:.06em;padding:3px 9px;border-radius:2px;
+  background:#F7EDE2;color:#8A4B12;
+}
+.tag.gap{background:#FBE9E7;color:var(--user)}
+
+.status{padding:44px 32px;color:var(--ink-soft);font-size:14px}
+
+footer{border-top:1px solid var(--line);padding:26px 0 60px;font-size:12.5px;color:var(--ink-soft)}
+footer p{margin:0 0 4px}
+
+@media(prefers-reduced-motion:no-preference){
+  .rev{animation:fade .5s ease both}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+</style>
 </head>
 <body>
-  <div>
-    <h1>AI 기반 음식점 리뷰 자동 평가</h1>
-    <p>배포 파이프라인 정상 작동 중</p>
-  </div>
+
+<header class="wrap hero">
+  <p class="eyebrow">AI 기반 음식점 리뷰 자동 평가</p>
+  <h1>리뷰는 칭찬인데,<br><em>별점은 1점</em>입니다.</h1>
+  <p class="lede">
+    별점과 리뷰 본문은 서로 따로 입력됩니다. 그래서 본문이 담은 평가와 별점이 어긋날 수 있습니다.
+    이 시스템은 별점 입력란을 없애고, 리뷰 본문만 읽어 별점을 산출합니다.
+    아래 축에서 두 점 사이가 벌어질수록, 사용자가 입력한 별점이 본문과 멀어진 리뷰입니다.
+  </p>
+  <p class="legend">
+    <span><i class="dot u"></i>사용자가 입력한 별점</span>
+    <span><i class="dot a"></i>AI가 본문에서 산출한 별점</span>
+    <span>괴리가 큰 순서로 정렬됩니다</span>
+  </p>
+</header>
+
+<main class="wrap grid">
+  <section class="panel" aria-label="가게 지도">
+    <div id="map"></div>
+    <div class="shoplist" id="shoplist"></div>
+  </section>
+
+  <section class="panel" id="detail" aria-live="polite">
+    <p class="status">가게 정보를 불러오는 중입니다.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>데이터: KR3 (Korean Restaurant Reviews with Ratings) · CC BY-NC-SA 4.0</p>
+  <p>지도: Leaflet, OpenStreetMap · 가게 위치와 리뷰는 시연을 위한 예시입니다.</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const pos = s => ((Math.min(5, Math.max(1, s)) - 1) / 4) * 100;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let map, markers = {}, shops = [], current = null;
+
+function drawReview(r) {
+  const gap = r.userStar - r.aiStar;
+  const big = Math.abs(gap) >= 2;
+  const lo = Math.min(pos(r.userStar), pos(r.aiStar));
+  const hi = Math.max(pos(r.userStar), pos(r.aiStar));
+  const ticks = [1,2,3,4,5].map(v =>
+    `<i class="tick" style="left:${pos(v)}%"></i>`).join('');
+
+  return `
+  <article class="rev${big ? ' flag' : ''}">
+    <p class="rev-text">${esc(r.text)}</p>
+    <div class="axis">
+      <i class="axis-line"></i>${ticks}
+      <i class="span" style="left:${lo}%;width:${hi - lo}%"></i>
+      <i class="mark u" style="left:${pos(r.userStar)}%"></i>
+      <i class="mark a" style="left:${pos(r.aiStar)}%"></i>
+    </div>
+    <div class="scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+    <div class="meta">
+      <span>입력 <b class="num u">${r.userStar.toFixed(1)}</b></span>
+      <span>산출 <b class="num a">${r.aiStar.toFixed(2)}</b></span>
+      <span class="conf">신뢰도
+        <span class="bar"><i style="width:${Math.round(r.confidence * 100)}%"></i></span>
+        <b class="num">${Math.round(r.confidence * 100)}%</b>
+      </span>
+      ${big ? '<span class="tag gap">본문과 괴리 큼</span>' : ''}
+      ${r.confidence < 0.3 ? '<span class="tag">복합 평가</span>' : ''}
+    </div>
+  </article>`;
+}
+
+function show(shop) {
+  current = shop.id;
+  const revs = [...shop.reviews].sort(
+    (a, b) => (a.userStar - a.aiStar) - (b.userStar - b.aiStar));
+
+  document.getElementById('detail').innerHTML = `
+    <div class="detail">
+      <h2>${esc(shop.name)}</h2>
+      <p class="addr">리뷰 ${shop.reviews.length}건</p>
+      <dl class="avgs">
+        <div class="avg u"><dt>사용자 입력 평균</dt><dd>${shop.userAvg.toFixed(2)}</dd></div>
+        <div class="avg"><dt>AI 산출 평균</dt><dd>${shop.aiAvg.toFixed(2)}</dd></div>
+        <div class="avg a"><dt>신뢰도 가중 평균</dt><dd>${shop.aiWeightedAvg.toFixed(2)}</dd></div>
+      </dl>
+      <p class="sec-label">리뷰별 별점 비교</p>
+      <p class="sec-note">위쪽일수록 사용자가 본문보다 박하게 준 리뷰입니다.</p>
+      ${revs.map(drawReview).join('')}
+    </div>`;
+
+  document.querySelectorAll('.shopbtn').forEach(b =>
+    b.setAttribute('aria-current', String(Number(b.dataset.id) === shop.id)));
+  if (markers[shop.id]) markers[shop.id].openPopup();
+}
+
+fetch('data.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    shops = data.shops || [];
+    if (!shops.length) throw new Error('empty');
+
+    map = L.map('map', { scrollWheelZoom: false })
+           .setView([shops[0].lat, shops[0].lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const list = document.getElementById('shoplist');
+    shops.forEach(s => {
+      const m = L.marker([s.lat, s.lng]).addTo(map)
+        .bindPopup(`<b>${esc(s.name)}</b><br>AI 산출 ${s.aiWeightedAvg.toFixed(2)}점`);
+      m.on('click', () => show(s));
+      markers[s.id] = m;
+
+      const b = document.createElement('button');
+      b.className = 'shopbtn';
+      b.dataset.id = s.id;
+      b.innerHTML = `<b>${esc(s.name)}</b><small>입력 ${s.userAvg.toFixed(2)} → 산출 ${s.aiWeightedAvg.toFixed(2)}</small>`;
+      b.addEventListener('click', () => show(s));
+      list.appendChild(b);
+    });
+
+    if (shops.length > 1) map.fitBounds(shops.map(s => [s.lat, s.lng]), { padding: [40, 40] });
+    show(shops[0]);
+  })
+  .catch(err => {
+    document.getElementById('detail').innerHTML =
+      `<p class="status">data.json을 읽지 못했습니다 (${esc(err.message)}).
+       파일이 index.html과 같은 폴더에 있는지 확인해 주세요.
+       로컬에서 볼 때는 <code>npx serve docs</code>로 실행해야 합니다.</p>`;
+  });
+</script>
 </body>
 </html>
