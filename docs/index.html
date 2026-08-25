@@ -3,272 +3,335 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>리뷰가 말하는 별점 — AI 기반 음식점 리뷰 자동 평가</title>
+<title>리뷰가 별점을 정합니다 — AI 기반 음식점 리뷰 자동 평가</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
 :root{
-  --paper:#F1F3F0;
-  --card:#FFFFFF;
-  --ink:#1C2321;
-  --ink-soft:#5E6B66;
-  --line:#D8DEDA;
-  --user:#B3271E;      /* 사용자가 입력한 별점 */
-  --ai:#1F6F6B;        /* AI가 산출한 별점 */
-  --warn:#C4820E;
+  --star:#FFC633; --star-off:#E3E5E8;
+  --ink:#191F28; --gray:#8B95A1; --line:#E5E8EB; --bg:#F2F4F6;
+  --blue:#0F6FFF; --red:#E5342B; --ok:#00B05D;
 }
-
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{
-  margin:0; background:var(--paper); color:var(--ink);
-  font-family:"IBM Plex Sans KR",system-ui,sans-serif;
-  font-weight:300; line-height:1.65;
-}
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.h2{font-size:22px;font-weight:700;margin:0 0 6px;letter-spacing:-.01em}
+.h2-sub{color:var(--gray);font-size:15px;margin:0 0 22px}
 
-/* ---------- hero ---------- */
-.hero{padding:72px 0 40px}
-.eyebrow{
-  font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.16em;
-  text-transform:uppercase; color:var(--ink-soft); margin:0 0 18px;
-}
-.hero h1{
-  font-family:"Gowun Batang",serif; font-weight:700;
-  font-size:clamp(32px,5.4vw,58px); line-height:1.22;
-  margin:0 0 20px; letter-spacing:-.01em;
-}
-.hero h1 em{font-style:normal;color:var(--user)}
-.lede{max-width:60ch;font-size:17px;color:var(--ink-soft);margin:0}
+/* ===== 1. 헤드라인 벽 ===== */
+.problem{background:#141A20;color:#fff;padding:60px 0 54px}
+.problem .tag{display:inline-block;font-size:12px;letter-spacing:.06em;color:var(--star);
+  border:1px solid rgba(255,198,51,.4);border-radius:2px;padding:4px 10px;margin-bottom:20px}
+.problem h1{font-size:clamp(27px,4.4vw,44px);font-weight:800;line-height:1.3;
+  margin:0 0 16px;letter-spacing:-.02em}
+.problem h1 mark{background:none;color:var(--star)}
+.problem .sub{color:#A7B0B8;font-size:16px;max-width:64ch;margin:0 0 30px}
 
-/* 축 범례 */
-.legend{
-  display:flex;flex-wrap:wrap;gap:22px;align-items:center;
-  margin-top:32px;padding-top:22px;border-top:1px solid var(--line);
-  font-size:13px;color:var(--ink-soft);
-}
-.legend span{display:inline-flex;align-items:center;gap:8px}
-.dot{width:11px;height:11px;border-radius:50%;flex:none}
-.dot.u{background:var(--user)}
-.dot.a{background:var(--ai)}
+.news{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.09);border-radius:8px;overflow:hidden}
+.news a{display:block;background:#141A20;padding:14px 16px;text-decoration:none;color:#fff;transition:background .15s}
+.news a:hover,.news a:focus-visible{background:#1E262E;outline:none}
+.news .src{font-size:11px;color:var(--star);letter-spacing:.04em;margin-bottom:5px}
+.news .hl{font-size:14px;font-weight:600;line-height:1.45}
+.news .dt{font-size:11px;color:#6B7680;margin-top:6px}
+.news-more{font-size:13px;color:#6B7680;margin:14px 0 0}
 
-/* ---------- layout ---------- */
-.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;padding-bottom:80px}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
+/* ===== 2. 실제 리뷰 재현 ===== */
+.evidence{padding:54px 0 0}
+.two{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:22px;align-items:start}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
 
-.panel{background:var(--card);border:1px solid var(--line);border-radius:4px}
-#map{height:420px;border-radius:4px 4px 0 0;background:#E4E8E5}
-@media(max-width:900px){#map{height:300px}}
+.nv{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+.nv-cap{font-size:12px;color:var(--gray);margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.nv-row{display:flex;align-items:center;gap:8px;font-size:14px;color:#4E5968;margin-bottom:9px}
+.nv-body{font-size:22px;font-weight:700;margin:12px 0 14px}
+.nv-star{display:flex;align-items:center;gap:9px;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.nv-star .lbl{font-size:13px;color:var(--gray)}
+.nv-meta{font-size:12px;color:var(--gray);margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px}
+.nv-meta b{color:var(--red);font-weight:600}
 
-.shoplist{padding:8px}
-.shopbtn{
-  display:block;width:100%;text-align:left;cursor:pointer;
-  background:none;border:none;border-radius:3px;
-  padding:12px 14px;font:inherit;color:inherit;
-}
-.shopbtn:hover{background:var(--paper)}
-.shopbtn[aria-current="true"]{background:var(--paper);box-shadow:inset 3px 0 0 var(--ai)}
-.shopbtn:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
-.shopbtn b{font-weight:500}
-.shopbtn small{display:block;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;font-size:12px}
+.quote{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px 26px}
+.quote blockquote{margin:0 0 16px;font-size:17px;line-height:1.65;font-weight:500;
+  padding-left:16px;border-left:3px solid var(--star)}
+.quote cite{display:block;font-style:normal;font-size:13px;color:var(--gray);margin-bottom:22px}
+.quote .turn{background:var(--bg);border-radius:8px;padding:18px 20px}
+.quote .turn p{margin:0;font-size:15px;line-height:1.65}
+.quote .turn strong{color:var(--blue)}
 
-/* ---------- detail ---------- */
-.detail{padding:30px 32px 36px}
-@media(max-width:560px){.detail{padding:24px 20px 28px}}
-.detail h2{font-family:"Gowun Batang",serif;font-size:27px;font-weight:700;margin:0 0 4px}
-.addr{font-size:13px;color:var(--ink-soft);margin:0 0 26px}
+/* ===== 별 ===== */
+.stars{display:inline-block;position:relative;flex:none;font-size:15px;line-height:1;
+  letter-spacing:1px;color:var(--star-off);white-space:nowrap}
+.stars::before{content:"\2605\2605\2605\2605\2605"}
+.stars i{position:absolute;left:0;top:0;overflow:hidden;color:var(--star);
+  transition:width .5s cubic-bezier(.4,0,.2,1)}
+.stars i::before{content:"\2605\2605\2605\2605\2605"}
+.stars.lg{font-size:20px}
+.stars.xl{font-size:24px}
+@media(prefers-reduced-motion:reduce){.stars i{transition:none}}
 
-.avgs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:34px}
-@media(max-width:560px){.avgs{grid-template-columns:1fr}}
-.avg{background:var(--card);padding:16px 18px}
-.avg dt{font-size:12px;color:var(--ink-soft);margin:0 0 6px;letter-spacing:.02em}
-.avg dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:28px;font-weight:500;line-height:1}
-.avg.u dd{color:var(--user)}
-.avg.a dd{color:var(--ai)}
+/* ===== 3. 지도앱 ===== */
+.app{padding:52px 0 80px}
+.toggle{display:inline-flex;background:#E3E6EA;border-radius:9px;padding:3px;margin-bottom:18px}
+.toggle button{border:none;background:none;cursor:pointer;font:inherit;font-size:14px;font-weight:600;
+  color:var(--gray);padding:9px 20px;border-radius:7px;transition:.18s}
+.toggle button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.toggle button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
-.sec-label{
-  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--ink-soft);
-  margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line);
-}
-.sec-note{font-size:13px;color:var(--ink-soft);margin:12px 0 4px}
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#map{height:300px;background:#DDE1E5}
+.shoplist{padding:6px}
+.shopbtn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
+  background:none;border:none;border-radius:8px;padding:11px 13px;font:inherit;color:inherit}
+.shopbtn:hover{background:var(--bg)}
+.shopbtn[aria-current="true"]{background:#EAF2FF}
+.shopbtn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.shopbtn .nm{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shopbtn .sc{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;flex:none}
 
-/* ---------- 괴리 축: 이 페이지의 핵심 ---------- */
-.rev{padding:22px 0;border-bottom:1px solid var(--line)}
-.rev:last-child{border-bottom:none}
-.rev-text{margin:0 0 16px;font-size:15px;line-height:1.6}
-.rev.flag .rev-text{font-weight:400}
+.shop-head{padding:24px 26px 20px;border-bottom:8px solid var(--bg)}
+.shop-head h3{font-size:23px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.score{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.score .big{font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;transition:color .4s}
+.score .cnt{font-size:13px;color:var(--gray)}
+.delta{font-size:13px;font-weight:600;padding:4px 10px;border-radius:20px;background:#E7F7EF;color:var(--ok)}
+.delta.none{background:var(--bg);color:var(--gray)}
 
-.axis{position:relative;height:34px;margin:0 4px}
-.axis-line{position:absolute;left:0;right:0;top:16px;height:1px;background:var(--line)}
-.tick{position:absolute;top:11px;width:1px;height:11px;background:var(--line)}
-.span{position:absolute;top:14px;height:5px;border-radius:3px;background:var(--warn);opacity:.5}
-.mark{
-  position:absolute;top:9px;width:15px;height:15px;border-radius:50%;
-  margin-left:-7.5px;border:2.5px solid var(--card);
-}
-.mark.u{background:var(--user);z-index:2}
-.mark.a{background:var(--ai);z-index:3}
-.scale{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-soft);margin:2px 4px 0}
+.rv{padding:18px 26px;border-bottom:1px solid var(--line)}
+.rv:last-child{border-bottom:none}
+.rv-top{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.rv-num{font-size:13px;color:var(--gray);font-variant-numeric:tabular-nums}
+.rv-text{margin:0;font-size:15px;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{font-size:12px;padding:3px 9px;border-radius:4px;background:var(--bg);color:var(--gray)}
+.chip.gap{background:#FDECEB;color:var(--red)}
+.chip.mix{background:#FFF6E5;color:#A96A00}
+.conf{display:inline-flex;align-items:center;gap:6px}
+.conf .bar{width:52px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.conf .bar i{display:block;height:100%;background:var(--blue)}
+.note{font-size:13px;color:var(--gray);padding:16px 26px;background:var(--bg);margin:0}
+.status{padding:40px 26px;color:var(--gray);font-size:14px}
 
-.meta{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:14px;font-size:13px}
-.num{font-family:"IBM Plex Mono",monospace;font-weight:500}
-.num.u{color:var(--user)}
-.num.a{color:var(--ai)}
-.conf{display:flex;align-items:center;gap:8px;color:var(--ink-soft)}
-.bar{width:64px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--ai)}
-.tag{
-  font-size:11px;letter-spacing:.06em;padding:3px 9px;border-radius:2px;
-  background:#F7EDE2;color:#8A4B12;
-}
-.tag.gap{background:#FBE9E7;color:var(--user)}
-
-.status{padding:44px 32px;color:var(--ink-soft);font-size:14px}
-
-footer{border-top:1px solid var(--line);padding:26px 0 60px;font-size:12.5px;color:var(--ink-soft)}
+footer{border-top:1px solid var(--line);padding:24px 0 56px;font-size:12.5px;color:var(--gray);background:#fff}
 footer p{margin:0 0 4px}
-
-@media(prefers-reduced-motion:no-preference){
-  .rev{animation:fade .5s ease both}
-  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-}
 </style>
 </head>
 <body>
 
-<header class="wrap hero">
-  <p class="eyebrow">AI 기반 음식점 리뷰 자동 평가</p>
-  <h1>리뷰는 칭찬인데,<br><em>별점은 1점</em>입니다.</h1>
-  <p class="lede">
-    별점과 리뷰 본문은 서로 따로 입력됩니다. 그래서 본문이 담은 평가와 별점이 어긋날 수 있습니다.
-    이 시스템은 별점 입력란을 없애고, 리뷰 본문만 읽어 별점을 산출합니다.
-    아래 축에서 두 점 사이가 벌어질수록, 사용자가 입력한 별점이 본문과 멀어진 리뷰입니다.
-  </p>
-  <p class="legend">
-    <span><i class="dot u"></i>사용자가 입력한 별점</span>
-    <span><i class="dot a"></i>AI가 본문에서 산출한 별점</span>
-    <span>괴리가 큰 순서로 정렬됩니다</span>
-  </p>
-</header>
+<!-- ===== 1. 헤드라인 벽 ===== -->
+<section class="problem">
+  <div class="wrap">
+    <span class="tag">계속 반복되는 문제</span>
+    <h1>리뷰에는 <mark>&ldquo;굿&rdquo;</mark>, 별점은 <mark>1점</mark></h1>
+    <p class="sub">
+      한 사람의 특이한 사례가 아닙니다. 네이버가 5년 만에 별점 공개를 재개한 뒤로
+      같은 종류의 기사가 계속 나오고 있습니다.
+    </p>
 
-<main class="wrap grid">
-  <section class="panel" aria-label="가게 지도">
-    <div id="map"></div>
-    <div class="shoplist" id="shoplist"></div>
-  </section>
+    <nav class="news" aria-label="관련 뉴스">
+      <a href="https://v.daum.net/v/20260825081208156" target="_blank" rel="noopener">
+        <div class="src">SBS</div>
+        <div class="hl">&ldquo;제일 무서운 후기&hellip;어떻게 좀 해 달라&rdquo; 곳곳서 난리</div>
+        <div class="dt">2026.08.25</div>
+      </a>
+      <a href="https://www.yna.co.kr/amp/view/AKR20260820154800505" target="_blank" rel="noopener">
+        <div class="src">연합뉴스</div>
+        <div class="hl">&ldquo;이유 없는 1점에도 속수무책&rdquo;&hellip;&lsquo;별점 테러&rsquo;에 떠는 자영업자</div>
+        <div class="dt">2026.08.24</div>
+      </a>
+      <a href="https://www.joongang.co.kr/article/25449028" target="_blank" rel="noopener">
+        <div class="src">중앙일보</div>
+        <div class="hl">43번 방문한 맛집에 별점1점&hellip;리뷰 테러에 장사 접은 사장님</div>
+        <div class="dt">2026.07.29</div>
+      </a>
+      <a href="https://www.mt.co.kr/society/2026/07/28/2026072806590456673" target="_blank" rel="noopener">
+        <div class="src">머니투데이</div>
+        <div class="hl">43번 찾은 횟집도 1점, 5300번 &lsquo;별점 테러&rsquo;&hellip;사장님은 가게 접었다</div>
+        <div class="dt">2026.07.28</div>
+      </a>
+      <a href="https://www.seoul.co.kr/news/economy/distribution/2026/07/15/20260715500077" target="_blank" rel="noopener">
+        <div class="src">서울신문</div>
+        <div class="hl">수십번 올 때마다 리뷰는 &ldquo;굿&rdquo; 점수는 &lsquo;1점&rsquo;&hellip;네이버 별점 재개에 소상공인 &lsquo;울상&rsquo;</div>
+        <div class="dt">2026.07.15</div>
+      </a>
+      <a href="https://www.google.com/search?q=%EB%A6%AC%EB%B7%B0+%EB%B3%84%EC%A0%90+%ED%85%8C%EB%9F%AC&tbm=nws" target="_blank" rel="noopener">
+        <div class="src">더 보기</div>
+        <div class="hl">&lsquo;리뷰 별점 테러&rsquo; 뉴스 검색 결과</div>
+        <div class="dt">구글 뉴스</div>
+      </a>
+    </nav>
+    <p class="news-more">기사 제목을 누르면 원문으로 이동합니다.</p>
+  </div>
+</section>
 
-  <section class="panel" id="detail" aria-live="polite">
-    <p class="status">가게 정보를 불러오는 중입니다.</p>
-  </section>
-</main>
+<!-- ===== 2. 실제 리뷰 재현 + 전문가 제안 ===== -->
+<section class="wrap evidence">
+  <h2 class="h2">문제가 된 리뷰는 이런 모습이었습니다</h2>
+  <p class="h2-sub">보도된 화면을 같은 구조로 재현했습니다.</p>
+
+  <div class="two">
+    <!-- 재현 카드 -->
+    <div class="nv">
+      <p class="nv-cap">지도앱 리뷰 화면</p>
+      <div class="nv-row"><span>&#127769;</span><span>저녁에 방문</span></div>
+      <p class="nv-body">굿</p>
+      <div class="nv-row"><span>&#128150;</span><span>친절해요</span></div>
+      <div class="nv-star">
+        <span class="lbl">별점</span>
+        <span class="stars xl" role="img" aria-label="5점 만점에 1점"><i style="width:20%"></i></span>
+        <span class="lbl">1.0</span>
+      </div>
+      <p class="nv-meta"><span>7.6. 월</span><span>&middot;</span><b>43번째 방문</b><span>&middot;</span><span>영수증 인증</span></p>
+    </div>
+
+    <!-- 전문가 제안 → 전환 -->
+    <div class="quote">
+      <blockquote>
+        낮은 별점을 줄 때 간단한 이유를 함께 남기도록 하는 장치가 필요하다.
+      </blockquote>
+      <cite>SBS 보도 중 전문가 의견 (2026.08.25)</cite>
+
+      <div class="turn">
+        <p>
+          전문가들은 <strong>별점에 이유를 덧붙이자</strong>고 제안합니다.
+          하지만 그러면 사용자가 입력해야 할 것이 하나 더 늘어납니다.
+        </p>
+        <p style="margin-top:12px">
+          이 프로젝트는 순서를 뒤집습니다. <strong>이유를 먼저 받고, 거기서 별점을 만듭니다.</strong>
+          사용자는 리뷰 본문만 씁니다. 별점 입력란이 없으므로 본문과 어긋난 별점도 생기지 않습니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3. 지도앱 ===== -->
+<section class="wrap app">
+  <h2 class="h2">같은 가게, 두 가지 평점</h2>
+  <p class="h2-sub">전환해 보면 별점이 어떻게 달라지는지 볼 수 있습니다.</p>
+
+  <div class="toggle" role="group" aria-label="평점 방식 전환">
+    <button id="btnUser" aria-pressed="true">지금의 지도앱</button>
+    <button id="btnAi" aria-pressed="false">AI 산출 적용</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div id="map"></div>
+        <div class="shoplist" id="shoplist"></div>
+      </div>
+    </div>
+    <div class="card" id="detail" aria-live="polite">
+      <p class="status">가게 정보를 불러오는 중입니다.</p>
+    </div>
+  </div>
+</section>
 
 <footer class="wrap">
-  <p>데이터: KR3 (Korean Restaurant Reviews with Ratings) · CC BY-NC-SA 4.0</p>
-  <p>지도: Leaflet, OpenStreetMap · 가게 위치와 리뷰는 시연을 위한 예시입니다.</p>
+  <p>모델: klue/bert-base 파인튜닝 &middot; 데이터: KR3 (CC BY-NC-SA 4.0)</p>
+  <p>지도: Leaflet, OpenStreetMap &middot; 가게 위치와 리뷰는 시연을 위한 예시입니다.</p>
+  <p>리뷰 화면은 보도 내용을 바탕으로 재현한 것이며 특정 서비스의 화면을 그대로 옮긴 것이 아닙니다.</p>
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const pos = s => ((Math.min(5, Math.max(1, s)) - 1) / 4) * 100;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const starHtml = (v, cls) =>
+  '<span class="stars ' + (cls || '') + '" role="img" aria-label="5점 만점에 ' + v.toFixed(1) + '점">' +
+  '<i style="width:' + (v / 5 * 100) + '%"></i></span>';
 
-let map, markers = {}, shops = [], current = null;
+let shops = [], current = null, mode = 'user';
 
-function drawReview(r) {
-  const gap = r.userStar - r.aiStar;
-  const big = Math.abs(gap) >= 2;
-  const lo = Math.min(pos(r.userStar), pos(r.aiStar));
-  const hi = Math.max(pos(r.userStar), pos(r.aiStar));
-  const ticks = [1,2,3,4,5].map(v =>
-    `<i class="tick" style="left:${pos(v)}%"></i>`).join('');
+function render() {
+  const s = shops.find(x => x.id === current);
+  if (!s) return;
+  const ai = mode === 'ai';
+  const avg = ai ? s.aiWeightedAvg : s.userAvg;
+  const diff = s.aiWeightedAvg - s.userAvg;
+  const revs = s.reviews.slice().sort((a, b) => (a.userStar - a.aiStar) - (b.userStar - b.aiStar));
 
-  return `
-  <article class="rev${big ? ' flag' : ''}">
-    <p class="rev-text">${esc(r.text)}</p>
-    <div class="axis">
-      <i class="axis-line"></i>${ticks}
-      <i class="span" style="left:${lo}%;width:${hi - lo}%"></i>
-      <i class="mark u" style="left:${pos(r.userStar)}%"></i>
-      <i class="mark a" style="left:${pos(r.aiStar)}%"></i>
-    </div>
-    <div class="scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
-    <div class="meta">
-      <span>입력 <b class="num u">${r.userStar.toFixed(1)}</b></span>
-      <span>산출 <b class="num a">${r.aiStar.toFixed(2)}</b></span>
-      <span class="conf">신뢰도
-        <span class="bar"><i style="width:${Math.round(r.confidence * 100)}%"></i></span>
-        <b class="num">${Math.round(r.confidence * 100)}%</b>
-      </span>
-      ${big ? '<span class="tag gap">본문과 괴리 큼</span>' : ''}
-      ${r.confidence < 0.3 ? '<span class="tag">복합 평가</span>' : ''}
-    </div>
-  </article>`;
+  let html = '<div class="shop-head"><h3>' + esc(s.name) + '</h3><div class="score">' +
+    starHtml(avg, 'lg') +
+    '<span class="big" style="color:' + (ai ? 'var(--ok)' : 'var(--ink)') + '">' + avg.toFixed(2) + '</span>' +
+    '<span class="cnt">리뷰 ' + s.reviews.length + '건</span>' +
+    (ai ? '<span class="delta' + (Math.abs(diff) < 0.3 ? ' none' : '') + '">' +
+          (diff >= 0 ? '+' : '') + diff.toFixed(2) + '</span>' : '') + '</div></div>';
+
+  revs.forEach(function (r) {
+    const v = ai ? r.aiStar : r.userStar;
+    const gap = Math.abs(r.userStar - r.aiStar) >= 2;
+    html += '<div class="rv"><div class="rv-top">' + starHtml(v) +
+      '<span class="rv-num">' + v.toFixed(ai ? 2 : 1) + '</span></div>' +
+      '<p class="rv-text">' + esc(r.text) + '</p><div class="chips">' +
+      (!ai && gap ? '<span class="chip gap">본문과 어긋남</span>' : '') +
+      (ai && r.confidence < 0.3 ? '<span class="chip mix">긍정&middot;부정 혼재</span>' : '') +
+      (ai ? '<span class="chip conf">신뢰도 <span class="bar"><i style="width:' +
+            Math.round(r.confidence * 100) + '%"></i></span>' + Math.round(r.confidence * 100) + '%</span>' : '') +
+      '</div></div>';
+  });
+
+  html += '<p class="note">' + (ai
+    ? 'AI가 리뷰 본문만 읽고 산출한 별점입니다. 가게 평점은 신뢰도를 가중치로 반영해 계산합니다.'
+    : '사용자가 직접 입력한 별점입니다. 본문과 어긋난 리뷰가 평점을 끌어내립니다.') + '</p>';
+
+  document.getElementById('detail').innerHTML = html;
+
+  document.querySelectorAll('.shopbtn').forEach(function (b) {
+    const sh = shops.find(x => x.id === Number(b.dataset.id));
+    const val = ai ? sh.aiWeightedAvg : sh.userAvg;
+    b.setAttribute('aria-current', String(sh.id === current));
+    b.querySelector('.sc').textContent = val.toFixed(2);
+    b.querySelector('.stars i').style.width = (val / 5 * 100) + '%';
+  });
 }
 
-function show(shop) {
-  current = shop.id;
-  const revs = [...shop.reviews].sort(
-    (a, b) => (a.userStar - a.aiStar) - (b.userStar - b.aiStar));
-
-  document.getElementById('detail').innerHTML = `
-    <div class="detail">
-      <h2>${esc(shop.name)}</h2>
-      <p class="addr">리뷰 ${shop.reviews.length}건</p>
-      <dl class="avgs">
-        <div class="avg u"><dt>사용자 입력 평균</dt><dd>${shop.userAvg.toFixed(2)}</dd></div>
-        <div class="avg"><dt>AI 산출 평균</dt><dd>${shop.aiAvg.toFixed(2)}</dd></div>
-        <div class="avg a"><dt>신뢰도 가중 평균</dt><dd>${shop.aiWeightedAvg.toFixed(2)}</dd></div>
-      </dl>
-      <p class="sec-label">리뷰별 별점 비교</p>
-      <p class="sec-note">위쪽일수록 사용자가 본문보다 박하게 준 리뷰입니다.</p>
-      ${revs.map(drawReview).join('')}
-    </div>`;
-
-  document.querySelectorAll('.shopbtn').forEach(b =>
-    b.setAttribute('aria-current', String(Number(b.dataset.id) === shop.id)));
-  if (markers[shop.id]) markers[shop.id].openPopup();
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnUser').setAttribute('aria-pressed', String(m === 'user'));
+  document.getElementById('btnAi').setAttribute('aria-pressed', String(m === 'ai'));
+  render();
 }
+document.getElementById('btnUser').onclick = function () { setMode('user'); };
+document.getElementById('btnAi').onclick = function () { setMode('ai'); };
 
 fetch('data.json')
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(data => {
+  .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(function (data) {
     shops = data.shops || [];
     if (!shops.length) throw new Error('empty');
 
-    map = L.map('map', { scrollWheelZoom: false })
-           .setView([shops[0].lat, shops[0].lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    const map = L.map('map', { scrollWheelZoom: false }).setView([shops[0].lat, shops[0].lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
     const list = document.getElementById('shoplist');
-    shops.forEach(s => {
-      const m = L.marker([s.lat, s.lng]).addTo(map)
-        .bindPopup(`<b>${esc(s.name)}</b><br>AI 산출 ${s.aiWeightedAvg.toFixed(2)}점`);
-      m.on('click', () => show(s));
-      markers[s.id] = m;
+    shops.forEach(function (s) {
+      L.marker([s.lat, s.lng]).addTo(map).bindPopup('<b>' + esc(s.name) + '</b>')
+        .on('click', function () { current = s.id; render(); });
 
       const b = document.createElement('button');
       b.className = 'shopbtn';
       b.dataset.id = s.id;
-      b.innerHTML = `<b>${esc(s.name)}</b><small>입력 ${s.userAvg.toFixed(2)} → 산출 ${s.aiWeightedAvg.toFixed(2)}</small>`;
-      b.addEventListener('click', () => show(s));
+      b.innerHTML = '<span class="nm">' + esc(s.name) + '</span>' +
+                    starHtml(s.userAvg) + '<span class="sc">' + s.userAvg.toFixed(2) + '</span>';
+      b.onclick = function () { current = s.id; render(); };
       list.appendChild(b);
     });
 
     if (shops.length > 1) map.fitBounds(shops.map(s => [s.lat, s.lng]), { padding: [40, 40] });
-    show(shops[0]);
+    current = shops[0].id;
+    render();
   })
-  .catch(err => {
+  .catch(function (err) {
     document.getElementById('detail').innerHTML =
-      `<p class="status">data.json을 읽지 못했습니다 (${esc(err.message)}).
-       파일이 index.html과 같은 폴더에 있는지 확인해 주세요.
-       로컬에서 볼 때는 <code>npx serve docs</code>로 실행해야 합니다.</p>`;
+      '<p class="status">data.json을 읽지 못했습니다 (' + esc(err.message) + ').' +
+      ' 로컬에서 볼 때는 <code>npx serve docs</code>로 실행해 주세요.</p>';
   });
 </script>
 </body>
