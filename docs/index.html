@@ -106,6 +106,8 @@ body{margin:0;background:var(--bg);color:var(--ink);
   background:#fff;border:1px solid var(--line);border-radius:8px;
   box-shadow:0 2px 8px rgba(0,0,0,.14);padding:7px 11px;
   font-family:inherit;color:var(--ink);white-space:nowrap;
+  cursor:pointer;
+  pointer-events:auto;
 }
 .leaflet-tooltip.maplabel::before{border-top-color:#fff}
 .maplabel .mn{font-size:13px;font-weight:700;margin-bottom:3px}
@@ -386,14 +388,14 @@ fetch('data.json')
     const list = document.getElementById('shoplist');
     shops.forEach(function (s) {
       /* 지도 라벨 — AI 산출 별점만 */
-      L.marker([s.lat, s.lng]).addTo(map)
-        .bindTooltip(
-          '<div class="mn">' + esc(s.name) + '</div>' +
-          '<div class="mp"><em>AI</em>' + starHtml(s.aiWeightedAvg) +
-          '<span class="a">' + s.aiWeightedAvg.toFixed(2) + '</span></div>',
-          { permanent: true, direction: 'top', offset: [0, -12],
-            className: 'maplabel', opacity: 1 })
-        .on('click', function () { current = s.id; render(); });
+      const mk = L.marker([s.lat, s.lng]).addTo(map);
+      mk.bindTooltip(
+        '<div class="mn">' + esc(s.name) + '</div>' +
+        '<div class="mp"><em>AI</em>' + starHtml(s.aiWeightedAvg) +
+        '<span class="a">' + s.aiWeightedAvg.toFixed(2) + '</span></div>',
+        { permanent: true, interactive: true, direction: 'top',
+          offset: [0, -12], className: 'maplabel', opacity: 1 });
+      mk.on('click', function () { current = s.id; render(); });
 
       /* 목록 — 기존 / AI 를 위아래로 */
       const stacked =
