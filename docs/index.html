@@ -96,7 +96,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
   font-variant-numeric:tabular-nums;flex:none;align-items:flex-end}
 .shopbtn .pair span{display:flex;align-items:center;gap:5px}
 .shopbtn .pair em{font-style:normal;font-size:10px;color:var(--gray);
-  width:46px;text-align:right;flex:none}
+  width:66px;text-align:right;flex:none}
 .shopbtn .pair .stars{font-size:11px;letter-spacing:0}
 .shopbtn .pair .u b{color:var(--red);font-weight:600}
 .shopbtn .pair .a b{color:var(--ok);font-weight:700}
@@ -399,9 +399,9 @@ fetch('data.json')
 
       /* 목록 — 기존 / AI 를 위아래로 */
       const stacked =
-        '<span class="u"><em>기존 별점</em>' + starHtml(s.userAvg) +
+        '<span class="u"><em>사용자 입력 별점</em>' + starHtml(s.userAvg) +
         '<b>' + s.userAvg.toFixed(2) + '</b></span>' +
-        '<span class="a"><em>AI 산출</em>' + starHtml(s.aiWeightedAvg) +
+        '<span class="a"><em>AI 산출 별점</em>' + starHtml(s.aiWeightedAvg) +
         '<b>' + s.aiWeightedAvg.toFixed(2) + '</b></span>';
 
       const b = document.createElement('button');
