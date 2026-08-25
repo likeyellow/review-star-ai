@@ -95,8 +95,6 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .shopbtn .pair{display:flex;flex-direction:column;gap:3px;font-size:11.5px;
   font-variant-numeric:tabular-nums;flex:none;align-items:flex-end}
 .shopbtn .pair span{display:flex;align-items:center;gap:5px}
-.shopbtn .pair em{font-style:normal;font-size:10px;color:var(--gray);
-  width:46px;text-align:right;flex:none}
 .shopbtn .pair .stars{font-size:11px;letter-spacing:0}
 .shopbtn .pair .u b{color:var(--red);font-weight:600}
 .shopbtn .pair .a b{color:var(--ok);font-weight:700}
@@ -110,9 +108,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .leaflet-tooltip.maplabel::before{border-top-color:#fff}
 .maplabel .mn{font-size:13px;font-weight:700;margin-bottom:3px}
 .maplabel .mp{display:flex;align-items:center;gap:5px;font-size:11.5px;font-variant-numeric:tabular-nums}
-.maplabel .mp em{font-style:normal;font-size:10px;font-weight:700;color:var(--gray);letter-spacing:.03em}
 .maplabel .mp .stars{font-size:11px;letter-spacing:0}
+.maplabel .mp .u{color:var(--red);font-weight:600}
 .maplabel .mp .a{color:var(--ok);font-weight:700}
+.maplabel .mp .ar{color:var(--gray)}
 
 /* ===== 4. 좌우 비교 ===== */
 .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding-bottom:52px}
@@ -281,7 +280,7 @@ footer p{margin:0 0 4px}
   <div class="maprow">
     <div class="card"><div id="map"></div></div>
     <div class="card">
-      <div class="shoplist" id="shoplist"><p class="lbl">가게 목록 &middot; 기존 / AI 산출</p></div>
+      <div class="shoplist" id="shoplist"><p class="lbl">가게 목록</p></div>
     </div>
   </div>
 
@@ -385,22 +384,23 @@ fetch('data.json')
 
     const list = document.getElementById('shoplist');
     shops.forEach(function (s) {
-      /* 지도 라벨 — AI 산출 별점만 */
+      /* 지도 라벨 — 가로 (말풍선이 높아지지 않게) */
+      const flat =
+        starHtml(s.userAvg) + '<span class="u">' + s.userAvg.toFixed(2) + '</span>' +
+        '<span class="ar">&rarr;</span>' +
+        starHtml(s.aiWeightedAvg) + '<span class="a">' + s.aiWeightedAvg.toFixed(2) + '</span>';
+
       L.marker([s.lat, s.lng]).addTo(map)
         .bindTooltip(
-          '<div class="mn">' + esc(s.name) + '</div>' +
-          '<div class="mp"><em>AI</em>' + starHtml(s.aiWeightedAvg) +
-          '<span class="a">' + s.aiWeightedAvg.toFixed(2) + '</span></div>',
+          '<div class="mn">' + esc(s.name) + '</div><div class="mp">' + flat + '</div>',
           { permanent: true, direction: 'top', offset: [0, -12],
             className: 'maplabel', opacity: 1 })
         .on('click', function () { current = s.id; render(); });
 
-      /* 목록 — 기존 / AI 를 위아래로 */
+      /* 목록 — 세로 (위아래로 비교) */
       const stacked =
-        '<span class="u"><em>기존 별점</em>' + starHtml(s.userAvg) +
-        '<b>' + s.userAvg.toFixed(2) + '</b></span>' +
-        '<span class="a"><em>AI 산출</em>' + starHtml(s.aiWeightedAvg) +
-        '<b>' + s.aiWeightedAvg.toFixed(2) + '</b></span>';
+        '<span class="u">' + starHtml(s.userAvg) + '<b>' + s.userAvg.toFixed(2) + '</b></span>' +
+        '<span class="a">' + starHtml(s.aiWeightedAvg) + '<b>' + s.aiWeightedAvg.toFixed(2) + '</b></span>';
 
       const b = document.createElement('button');
       b.className = 'shopbtn';
