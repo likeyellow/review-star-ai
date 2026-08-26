@@ -213,11 +213,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .plist b{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
 .field .face{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:8px;margin:16px 0 18px;flex:1;font-size:58px;line-height:1}
-.field .face span{font-size:26px;font-weight:800;color:var(--ink);margin-top:20px;}
-.field .bigval{text-align:center;font-size:32px;font-weight:800;line-height:1;
-  font-variant-numeric:tabular-nums;margin:0 0 18px}
-.field .bigval span{font-size:15px;font-weight:600;color:var(--gray);margin-left:3px}
-.field .chart+.bigval{margin-top:-4px}
+.field .face span{font-size:26px;font-weight:800;color:var(--ink); margin-top: 20px;}
 
 .spin{width:15px;height:15px;border-radius:50%;flex:none;
   border:2px solid var(--line);border-top-color:var(--blue);
@@ -593,9 +589,9 @@ function fieldsHtml(d) {
 
   return '' +
   '<div class="field"><span class="k">star</span>' +
-    '<div class="n" style="margin-top:2px">산출 별점</div>' +
+    '<div class="n">산출 별점</div>' +
     starAxisSvg(d.star) +
-    '<div class="bigval">' + d.star.toFixed(2) + '<span>점</span></div>' +
+    '<div class="v">' + d.star.toFixed(2) + '</div>' +
     '<p class="d">세 범주의 확률에 각각의 별점 기준값(부정 1점, 중립 3점, 긍정 5점)을 곱해 더한 기댓값입니다. ' +
     '구간을 나누지 않아 연속적인 값이 나옵니다.</p></div>' +
 
