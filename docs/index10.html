@@ -211,16 +211,6 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .plist li{display:flex;align-items:center;gap:7px;padding:3px 0}
 .plist i{width:9px;height:9px;border-radius:2px;flex:none}
 .plist b{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
-.field .face{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:8px;margin:16px 0 18px;flex:1;font-size:58px;line-height:1}
-.field .face span{font-size:26px;font-weight:800;color:var(--ink); margin-top: 20px;}
-
-.spin{width:15px;height:15px;border-radius:50%;flex:none;
-  border:2px solid var(--line);border-top-color:var(--blue);
-  animation:spin .7s linear infinite;display:none}
-.spin.on{display:inline-block}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
 
 footer{border-top:1px solid var(--line);padding:24px 0 56px;font-size:12.5px;color:var(--gray);background:#fff}
 footer p{margin:0 0 4px}
@@ -353,7 +343,6 @@ footer p{margin:0 0 4px}
     <div class="samples" id="samples"></div>
     <div class="live-bar">
       <button id="rvGo">별점 산출</button>
-      <span class="spin" id="rvSpin" aria-hidden="true"></span>
       <span class="live-hint" id="rvHint">Ctrl+Enter로도 실행됩니다.</span>
     </div>
   </div>
@@ -517,7 +506,6 @@ const SAMPLES = ['굿', '친절해요', '회는 신선한데 주차가 너무 �
 const input = document.getElementById('rvInput');
 const goBtn = document.getElementById('rvGo');
 const hint  = document.getElementById('rvHint');
-const spin  = document.getElementById('rvSpin');
 const out   = document.getElementById('rvOut');
 
 document.getElementById('samples').innerHTML =
@@ -527,7 +515,6 @@ document.getElementById('samples').onclick = function (e) {
 };
 
 const LABEL_KO = { positive: '긍정', negative: '부정', neutral: '중립' };
-const FACE = { positive: '\u{1F60A}', negative: '\u{1F61E}', neutral: '\u{1F610}' };
 
 /* 1~5 눈금 위에 산출 별점을 표시 */
 function starAxisSvg(v) {
@@ -613,10 +600,8 @@ function fieldsHtml(d) {
     '고르게 갈릴수록 신뢰도가 낮아집니다.</p></div>' +
 
   '<div class="field"><span class="k">label</span>' +
-    '<div class="n" style="margin-top:2px">최다 확률 범주</div>' +
-    '<div class="face" role="img" aria-label="' + (LABEL_KO[d.label] || d.label) + '">' +
-      (FACE[d.label] || '\u{1F610}') +
-      '<span>' + (LABEL_KO[d.label] || d.label) + '</span></div>' +
+    '<div class="v">' + (LABEL_KO[d.label] || d.label) + '</div>' +
+    '<div class="n">최다 확률 범주</div>' +
     '<p class="d">세 범주 중 확률이 가장 높은 하나입니다. 별점 산출에는 쓰이지 않고 참고용입니다.</p></div>';
 }
 
@@ -624,7 +609,6 @@ function score() {
   const text = input.value.trim();
   if (!text) { input.focus(); return; }
   goBtn.disabled = true;
-  spin.classList.add('on');
   hint.textContent = '산출 중입니다. 서버가 절전 중이면 40초 정도 걸릴 수 있습니다.';
 
   fetch(API, {
@@ -653,7 +637,7 @@ function score() {
       hint.textContent = '';
     })
     .catch(function () { hint.textContent = '모델 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'; })
-    .finally(function () { goBtn.disabled = false; spin.classList.remove('on'); });
+    .finally(function () { goBtn.disabled = false; });
 }
 
 goBtn.onclick = score;

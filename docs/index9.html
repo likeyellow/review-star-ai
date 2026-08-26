@@ -197,30 +197,13 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .problegend i{width:9px;height:9px;border-radius:2px;flex:none}
 
 /* 응답값 카드 */
-.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
-.field{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;
-  display:flex;flex-direction:column}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.field{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px}
 .field .k{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--blue);
-  background:#EAF2FF;border-radius:4px;padding:2px 7px;align-self:flex-start;margin-bottom:9px}
+  background:#EAF2FF;border-radius:4px;padding:2px 7px;display:inline-block;margin-bottom:9px}
 .field .v{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;margin-bottom:8px}
 .field .n{font-size:14px;font-weight:600;margin-bottom:4px}
-.field .d{font-size:12.5px;color:var(--gray);line-height:1.55;margin:auto 0 0}
-.field .chart{display:block;width:100%;height:auto;margin:12px 0 14px}
-.field .chart.donut{max-width:140px;margin:12px auto 14px}
-.plist{list-style:none;margin:0 0 14px;padding:0;font-size:12.5px}
-.plist li{display:flex;align-items:center;gap:7px;padding:3px 0}
-.plist i{width:9px;height:9px;border-radius:2px;flex:none}
-.plist b{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
-.field .face{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:8px;margin:16px 0 18px;flex:1;font-size:58px;line-height:1}
-.field .face span{font-size:26px;font-weight:800;color:var(--ink); margin-top: 20px;}
-
-.spin{width:15px;height:15px;border-radius:50%;flex:none;
-  border:2px solid var(--line);border-top-color:var(--blue);
-  animation:spin .7s linear infinite;display:none}
-.spin.on{display:inline-block}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
+.field .d{font-size:12.5px;color:var(--gray);line-height:1.55;margin:0}
 
 footer{border-top:1px solid var(--line);padding:24px 0 56px;font-size:12.5px;color:var(--gray);background:#fff}
 footer p{margin:0 0 4px}
@@ -353,7 +336,6 @@ footer p{margin:0 0 4px}
     <div class="samples" id="samples"></div>
     <div class="live-bar">
       <button id="rvGo">별점 산출</button>
-      <span class="spin" id="rvSpin" aria-hidden="true"></span>
       <span class="live-hint" id="rvHint">Ctrl+Enter로도 실행됩니다.</span>
     </div>
   </div>
@@ -403,7 +385,7 @@ const confChip = c =>
   Math.round(c * 100) + '%';
 
 /* ===== 탭 ===== */
-let map = null, mapBounds = null;
+let map = null;
 const tabs = [['t1','p1'],['t2','p2'],['t3','p3']];
 function selectTab(id) {
   tabs.forEach(function (pair) {
@@ -411,13 +393,8 @@ function selectTab(id) {
     document.getElementById(pair[0]).setAttribute('aria-selected', String(on));
     document.getElementById(pair[1]).hidden = !on;
   });
-  // 숨겨진 상태로 만들어진 지도는 크기가 0이라 위치·배율을 다시 잡아줘야 한다
-  if (id === 't2' && map) {
-    setTimeout(function () {
-      map.invalidateSize();
-      if (mapBounds) map.fitBounds(mapBounds, { padding: [50, 50] });
-    }, 0);
-  }
+  // 숨겨진 상태로 만들어진 지도는 크기를 다시 잡아줘야 한다
+  if (id === 't2' && map) setTimeout(function () { map.invalidateSize(); }, 0);
   if (id === 't3') document.getElementById('rvInput').focus();
 }
 tabs.forEach(function (pair) {
@@ -498,10 +475,7 @@ fetch('data.json')
       list.appendChild(b);
     });
 
-    if (shops.length > 1) {
-      mapBounds = shops.map(s => [s.lat, s.lng]);
-      map.fitBounds(mapBounds, { padding: [50, 50] });
-    }
+    if (shops.length > 1) map.fitBounds(shops.map(s => [s.lat, s.lng]), { padding: [50, 50] });
     current = shops[0].id;
     render();
   })
@@ -517,7 +491,6 @@ const SAMPLES = ['굿', '친절해요', '회는 신선한데 주차가 너무 �
 const input = document.getElementById('rvInput');
 const goBtn = document.getElementById('rvGo');
 const hint  = document.getElementById('rvHint');
-const spin  = document.getElementById('rvSpin');
 const out   = document.getElementById('rvOut');
 
 document.getElementById('samples').innerHTML =
@@ -527,104 +500,35 @@ document.getElementById('samples').onclick = function (e) {
 };
 
 const LABEL_KO = { positive: '긍정', negative: '부정', neutral: '중립' };
-const FACE = { positive: '\u{1F60A}', negative: '\u{1F61E}', neutral: '\u{1F610}' };
-
-/* 1~5 눈금 위에 산출 별점을 표시 */
-function starAxisSvg(v) {
-  const x = t => 12 + (t - 1) / 4 * 196;
-  let ticks = '', labels = '';
-  for (let i = 1; i <= 5; i++) {
-    ticks += '<line x1="' + x(i) + '" y1="20" x2="' + x(i) + '" y2="30" stroke="#D8DEE3" stroke-width="1.5"/>';
-    labels += '<text x="' + x(i) + '" y="44" text-anchor="middle" font-size="10" fill="#8B95A1">' + i + '</text>';
-  }
-  return '<svg viewBox="0 0 220 50" class="chart" role="img" aria-label="1점부터 5점 축 위의 ' + v.toFixed(2) + '점">' +
-    '<line x1="12" y1="25" x2="208" y2="25" stroke="#E5E8EB" stroke-width="2" stroke-linecap="round"/>' +
-    '<line x1="12" y1="25" x2="' + x(v) + '" y2="25" stroke="#FFC633" stroke-width="4" stroke-linecap="round"/>' +
-    ticks +
-    '<circle cx="' + x(v) + '" cy="25" r="7" fill="#00B05D" stroke="#fff" stroke-width="2.5"/>' +
-    labels + '</svg>';
-}
-
-/* 신뢰도 반원 게이지 */
-function gaugeSvg(c) {
-  const R = 78, CX = 100, CY = 96;
-  const len = Math.PI * R;
-  return '<svg viewBox="0 0 200 116" class="chart" role="img" aria-label="신뢰도 ' + Math.round(c * 100) + '퍼센트">' +
-    '<defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">' +
-    '<stop offset="0%" stop-color="#E5342B"/><stop offset="45%" stop-color="#F59E0B"/>' +
-    '<stop offset="65%" stop-color="#FFC633"/><stop offset="100%" stop-color="#00B05D"/>' +
-    '</linearGradient></defs>' +
-    '<path d="M' + (CX - R) + ',' + CY + ' A' + R + ',' + R + ' 0 0 1 ' + (CX + R) + ',' + CY + '" ' +
-    'fill="none" stroke="#E5E8EB" stroke-width="13" stroke-linecap="round"/>' +
-    '<path d="M' + (CX - R) + ',' + CY + ' A' + R + ',' + R + ' 0 0 1 ' + (CX + R) + ',' + CY + '" ' +
-    'fill="none" stroke="url(#gg)" stroke-width="13" stroke-linecap="round" ' +
-    'stroke-dasharray="' + (c * len).toFixed(1) + ' ' + len.toFixed(1) + '"/>' +
-    '<text x="' + CX + '" y="88" text-anchor="middle" font-size="30" font-weight="800" fill="#191F28">' +
-    Math.round(c * 100) + '<tspan font-size="15">%</tspan></text>' +
-    '<text x="22" y="112" font-size="10" fill="#8B95A1">0</text>' +
-    '<text x="170" y="112" font-size="10" fill="#8B95A1">100</text></svg>';
-}
-
-/* 세 확률을 하나의 도넛으로 */
-function donutSvg(p) {
-  const R = 46, C = 2 * Math.PI * R;
-  const segs = [[p.negative, '#E5342B'], [p.neutral, '#F0A500'], [p.positive, '#00B05D']];
-  let off = 0, arcs = '';
-  segs.forEach(function (sg) {
-    const len = sg[0] * C;
-    arcs += '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + sg[1] + '" stroke-width="19" ' +
-      'stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" ' +
-      'stroke-dashoffset="' + (-off).toFixed(2) + '"/>';
-    off += len;
-  });
-  return '<svg viewBox="0 0 120 120" class="chart donut" role="img" ' +
-    'aria-label="부정 ' + Math.round(p.negative * 100) + '퍼센트, 중립 ' + Math.round(p.neutral * 100) +
-    '퍼센트, 긍정 ' + Math.round(p.positive * 100) + '퍼센트">' +
-    '<g transform="rotate(-90 60 60)">' + arcs + '</g></svg>';
-}
 
 function fieldsHtml(d) {
   const p = d.probs || {};
-  const pct = v => (v * 100).toFixed(1) + '%';
-
-  return '' +
-  '<div class="field"><span class="k">star</span>' +
-    '<div class="v">' + d.star.toFixed(2) + '</div>' +
-    '<div class="n">산출 별점</div>' +
-    starAxisSvg(d.star) +
-    '<p class="d">세 범주의 확률에 각각의 별점 기준값(부정 1점, 중립 3점, 긍정 5점)을 곱해 더한 기댓값입니다. ' +
-    '구간을 나누지 않아 연속적인 값이 나옵니다.</p></div>' +
-
-  '<div class="field"><span class="k">confidence</span>' +
-    '<div class="n" style="margin-top:2px">신뢰도</div>' +
-    gaugeSvg(d.confidence) +
-    '<p class="d">확률분포가 한쪽에 얼마나 몰려 있는지를 엔트로피로 재어 0~1로 바꾼 값입니다. ' +
-    '판단의 확신 정도이며 정답률과는 다릅니다. 로그가 들어간 곡선이라 2차 함수는 아닙니다.</p></div>' +
-
-  '<div class="field"><span class="k">probs</span>' +
-    '<div class="n" style="margin-top:2px">범주별 확률</div>' +
-    donutSvg(p) +
-    '<ul class="plist">' +
-      '<li><i style="background:#E5342B"></i>부정<b>' + pct(p.negative) + '</b></li>' +
-      '<li><i style="background:#F0A500"></i>중립<b>' + pct(p.neutral) + '</b></li>' +
-      '<li><i style="background:#00B05D"></i>긍정<b>' + pct(p.positive) + '</b></li>' +
-    '</ul>' +
-    '<p class="d">모델이 각 범주에 매긴 확률이며 셋의 합은 항상 1입니다. ' +
-    '고르게 갈릴수록 신뢰도가 낮아집니다.</p></div>' +
-
-  '<div class="field"><span class="k">label</span>' +
-    '<div class="n" style="margin-top:2px">최다 확률 범주</div>' +
-    '<div class="face" role="img" aria-label="' + (LABEL_KO[d.label] || d.label) + '">' +
-      (FACE[d.label] || '\u{1F610}') +
-      '<span>' + (LABEL_KO[d.label] || d.label) + '</span></div>' +
-    '<p class="d">세 범주 중 확률이 가장 높은 하나입니다. 별점 산출에는 쓰이지 않고 참고용입니다.</p></div>';
+  const items = [
+    ['star', d.star.toFixed(2), '산출 별점',
+     '세 범주의 확률에 각각의 별점 기준값(부정 1점, 중립 3점, 긍정 5점)을 곱해 더한 기댓값입니다. 구간을 나누지 않아 연속적인 값이 나옵니다.'],
+    ['confidence', Math.round(d.confidence * 100) + '%', '신뢰도',
+     '확률분포가 한쪽에 얼마나 몰려 있는지를 엔트로피로 재어 0~1로 바꾼 값입니다. 판단의 확신 정도이며 정답률과는 다릅니다.'],
+    ['label', LABEL_KO[d.label] || d.label, '최다 확률 범주',
+     '세 범주 중 확률이 가장 높은 하나입니다. 별점 산출에는 쓰이지 않고 참고용입니다.'],
+    ['probs.negative', (p.negative * 100).toFixed(1) + '%', '부정 확률',
+     '이 리뷰가 부정적 평가일 것으로 모델이 판단한 정도입니다.'],
+    ['probs.neutral', (p.neutral * 100).toFixed(1) + '%', '중립 확률',
+     '감성이 뚜렷하지 않거나 정보 전달에 가까운 리뷰일 확률입니다.'],
+    ['probs.positive', (p.positive * 100).toFixed(1) + '%', '긍정 확률',
+     '이 리뷰가 긍정적 평가일 것으로 모델이 판단한 정도입니다. 세 확률의 합은 항상 1입니다.'],
+  ];
+  return items.map(function (it) {
+    return '<div class="field"><span class="k">' + it[0] + '</span>' +
+      '<div class="v">' + it[1] + '</div>' +
+      '<div class="n">' + it[2] + '</div>' +
+      '<p class="d">' + it[3] + '</p></div>';
+  }).join('');
 }
 
 function score() {
   const text = input.value.trim();
   if (!text) { input.focus(); return; }
   goBtn.disabled = true;
-  spin.classList.add('on');
   hint.textContent = '산출 중입니다. 서버가 절전 중이면 40초 정도 걸릴 수 있습니다.';
 
   fetch(API, {
@@ -653,7 +557,7 @@ function score() {
       hint.textContent = '';
     })
     .catch(function () { hint.textContent = '모델 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'; })
-    .finally(function () { goBtn.disabled = false; spin.classList.remove('on'); });
+    .finally(function () { goBtn.disabled = false; });
 }
 
 goBtn.onclick = score;
