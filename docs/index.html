@@ -217,6 +217,12 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .field .bigval{text-align:center;font-size:32px;font-weight:800;line-height:1;
   font-variant-numeric:tabular-nums;margin:0 0 18px}
 .field .bigval span{font-size:15px;font-weight:600;color:var(--gray);margin-left:3px}
+/* 리뷰 아님 결과 */
+.reject{display:flex;align-items:center;gap:14px;padding:20px 22px;
+  background:#FFF6E5;border:1px solid #F0D9A8;border-radius:10px;margin-bottom:14px}
+.reject .ico{font-size:34px;line-height:1;flex:none}
+.reject .msg{font-size:15px;font-weight:700;margin:0 0 3px}
+.reject .sub{font-size:13px;color:#8A6410;margin:0}
 .field .chart+.bigval{margin-top:-4px}
 
 .spin{width:15px;height:15px;border-radius:50%;flex:none;
@@ -363,6 +369,13 @@ footer p{margin:0 0 4px}
   </div>
 
   <div class="result" id="rvOut">
+    <div class="reject" id="rvReject" style="display:none">
+      <span class="ico">&#128683;</span>
+        <div>
+          <p class="msg">리뷰로 인식되지 않았습니다.</p>
+          <p class="sub">별점에 반영되지 않습니다.</p>
+        </div>
+    </div>
     <div class="result-main">
       <p class="result-q" id="outQ"></p>
       <div class="score">
@@ -516,8 +529,9 @@ fetch('data.json')
   });
 
 /* ===== 탭 3: 실시간 별점 ===== */
-const SAMPLES = ['굿', '친절해요', '회는 신선한데 주차가 너무 불편했어요',
-                 '재료가 다 상한 것 같고 직원도 불친절했어요', '엄마 보고 싶어요'];
+const SAMPLES = ['굿', '존맛탱', '회는 신선한데 주차가 너무 불편했어요',
+                 '재료가 다 상한 것 같고 직원도 불친절했어요',
+                 '엄마 보고 싶어요', '떡볶이 먹고 싶다'];
 const input = document.getElementById('rvInput');
 const goBtn = document.getElementById('rvGo');
 const hint  = document.getElementById('rvHint');
@@ -588,8 +602,12 @@ function donutSvg(p) {
 }
 
 function fieldsHtml(d) {
-  const p = d.probs || {};
-  const pct = v => (v * 100).toFixed(1) + '%';
+  var raw = d.probs || {};
+  var s3 = raw.negative + raw.neutral + raw.positive;
+  var p = { negative: raw.negative / s3,
+            neutral:  raw.neutral  / s3,
+            positive: raw.positive / s3 };
+  var pct = function (v) { return (v * 100).toFixed(1) + '%'; };
 
   return '' +
   '<div class="field"><span class="k">star</span>' +
@@ -623,7 +641,24 @@ function fieldsHtml(d) {
       '<span>' + (LABEL_KO[d.label] || d.label) + '</span></div>' +
     '<p class="d">세 범주 중 확률이 가장 높은 하나입니다. 별점 산출에는 쓰이지 않고 참고용입니다.</p></div>';
 }
+function rejectFields(d) {
+  var p = d.probs || {};
+  return '' +
+  '<div class="field"><span class="k">is_review</span>' +
+    '<div class="n" style="margin-top:2px">리뷰 여부</div>' +
+    '<div class="face" role="img" aria-label="리뷰 아님">\u{1F6AB}<span>리뷰 아님</span></div>' +
+    '<p class="d">모델이 음식점 리뷰가 아니라고 판단했습니다. 이 경우 별점을 산출하지 않으며 가게 평점에도 반영되지 않습니다.</p></div>' +
 
+  '<div class="field"><span class="k">probs.not_a_review</span>' +
+    '<div class="n" style="margin-top:2px">리뷰 아님 확률</div>' +
+    '<div class="bigval">' + (p.not_a_review * 100).toFixed(1) + '<span>%</span></div>' +
+    '<p class="d">뉴스 제목과 일상 문장 등 음식점 리뷰가 아닌 문장을 학습해 추가한 네 번째 범주입니다.</p></div>' +
+
+  '<div class="field"><span class="k">star</span>' +
+    '<div class="n" style="margin-top:2px">산출 별점</div>' +
+    '<div class="face"><span style="font-size:26px;color:var(--gray)">없음</span></div>' +
+    '<p class="d">리뷰가 아닌 입력에는 별점을 매기지 않습니다. 이전 3범주 모델은 이런 문장에도 3점 안팎의 별점을 산출했습니다.</p></div>';
+}
 function fetchScore(text, retry) {
   return fetch(API, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -650,21 +685,37 @@ function score() {
 
 fetchScore(text, 5)
     .then(function (d) {
-      const p = d.probs || {};
       document.getElementById('outQ').textContent = '입력한 리뷰 — ' + text;
-      document.getElementById('outStars').querySelector('i').style.width = (d.star / 5 * 100) + '%';
-      document.getElementById('outNum').textContent = d.star.toFixed(2);
-      document.getElementById('outConf').innerHTML = confChip(d.confidence);
 
-      const bar = document.getElementById('probbar');
-      bar.querySelector('.pn').style.width = (p.negative * 100) + '%';
-      bar.querySelector('.pu').style.width = (p.neutral * 100) + '%';
-      bar.querySelector('.pp').style.width = (p.positive * 100) + '%';
-      bar.querySelector('.pn').textContent = p.negative >= 0.12 ? Math.round(p.negative * 100) + '%' : '';
-      bar.querySelector('.pu').textContent = p.neutral  >= 0.12 ? Math.round(p.neutral  * 100) + '%' : '';
-      bar.querySelector('.pp').textContent = p.positive >= 0.12 ? Math.round(p.positive * 100) + '%' : '';
+      var main = document.getElementById('rvOut').querySelector('.result-main');
+      var rej  = document.getElementById('rvReject');
 
-      document.getElementById('fields').innerHTML = fieldsHtml(d);
+      if (d.is_review === false) {
+        // 리뷰로 인식되지 않은 경우 — 별점을 내놓지 않는다
+        main.style.display = 'none';
+        rej.style.display = 'flex';
+        document.getElementById('fields').innerHTML = rejectFields(d);
+      } else {
+        main.style.display = '';
+        rej.style.display = 'none';
+
+        document.getElementById('outStars').querySelector('i').style.width = (d.star / 5 * 100) + '%';
+        document.getElementById('outNum').textContent = d.star.toFixed(2);
+        document.getElementById('outConf').innerHTML = confChip(d.confidence);
+
+        var p = d.probs || {};
+        var bar = document.getElementById('probbar');
+        var s3 = p.negative + p.neutral + p.positive;      // 앞 3개만 정규화
+        var n = p.negative / s3, u = p.neutral / s3, g = p.positive / s3;
+        bar.querySelector('.pn').style.width = (n * 100) + '%';
+        bar.querySelector('.pu').style.width = (u * 100) + '%';
+        bar.querySelector('.pp').style.width = (g * 100) + '%';
+        bar.querySelector('.pn').textContent = n >= 0.12 ? Math.round(n * 100) + '%' : '';
+        bar.querySelector('.pu').textContent = u >= 0.12 ? Math.round(u * 100) + '%' : '';
+        bar.querySelector('.pp').textContent = g >= 0.12 ? Math.round(g * 100) + '%' : '';
+
+        document.getElementById('fields').innerHTML = fieldsHtml(d);
+      }
 
       out.classList.add('on');
       hint.textContent = '';
